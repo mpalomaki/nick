@@ -1,4 +1,4 @@
-import { compact, uniq } from 'lodash';
+import { compact, includes, uniq } from 'lodash';
 import { RequestException, getPath, getUserId, hasPermission } from '../';
 import { Document, Redirect, Role, Type, User } from '../../models';
 
@@ -20,6 +20,18 @@ export async function callHandler(req, trx, route, callback) {
     },
     trx,
   );
+
+  // If token not in user model
+  if (!includes(req.user.tokens || [], req.token)) {
+    // Set anonymous user
+    req.user = await User.fetchById(
+      'anonymous',
+      {
+        related: '[_roles, _groups._roles]',
+      },
+      trx,
+    );
+  }
 
   // Traverse to document
   const root = await Document.fetchOne({ parent: null }, {}, trx);

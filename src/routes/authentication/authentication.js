@@ -5,11 +5,42 @@
 
 import bcrypt from 'bcrypt-promise';
 import jwt from 'jsonwebtoken';
+import { filter } from 'lodash';
 
 import { User } from '../../models';
-import { log, RequestException, authLimiter } from '../../helpers';
+import {
+  addToken,
+  authLimiter,
+  log,
+  removeToken,
+  RequestException,
+} from '../../helpers';
 
 const { config } = require(`${process.cwd()}/config`);
+
+/**
+ * Generate and store jwt token
+ * @method storeToken
+ * @param {Object} user User to use for jwt token
+ * @returns {string} Generated token
+ */
+async function storeToken(user, trx) {
+  // Generate token
+  const token = jwt.sign(
+    {
+      sub: user.id,
+      fullname: user.fullname,
+    },
+    config.secret,
+    { expiresIn: '2h', algorithm: 'HS256' },
+  );
+
+  // Add token to user
+  await addToken(user, token, trx);
+
+  // Return token
+  return token;
+}
 
 export default [
   {
@@ -71,14 +102,7 @@ export default [
       // Return ok
       return {
         json: {
-          token: jwt.sign(
-            {
-              sub: user.id,
-              fullname: user.fullname,
-            },
-            config.secret,
-            { expiresIn: '2h', algorithm: 'HS256' },
-          ),
+          token: await storeToken(user, trx),
         },
       };
     },
@@ -106,14 +130,7 @@ export default [
 
       return {
         json: {
-          token: jwt.sign(
-            {
-              sub: req.user.id,
-              fullname: req.user.fullname,
-            },
-            config.secret,
-            { expiresIn: '2h', algorithm: 'HS256' },
-          ),
+          token: await storeToken(req.user, trx),
         },
       };
     },
@@ -122,8 +139,14 @@ export default [
     op: 'post',
     view: '/@logout',
     client: 'logout',
-    handler: async (req) => ({
-      status: 204,
-    }),
+    handler: async (req, trx) => {
+      // Remove token from user
+      await removeToken(req.token, req.user, trx);
+
+      // Return ok
+      return {
+        status: 204,
+      };
+    },
   },
 ];

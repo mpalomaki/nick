@@ -4,7 +4,7 @@
  * @example import { BaseModel } from './helpers';
  */
 
-export { getUserId, hasPermission } from './auth/auth';
+export { addToken, getUserId, hasPermission, removeToken } from './auth/auth';
 export {
   handleBlockReferences,
   handleFiles,

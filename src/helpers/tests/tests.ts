@@ -8,6 +8,10 @@ import fs from 'fs';
 import _, { indexOf, join, slice } from 'lodash';
 import { Application } from 'express';
 import type { AllMethods } from 'supertest/types';
+import { addToken, removeToken } from '../auth/auth';
+
+const token =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImZ1bGxuYW1lIjoiQWRtaW4iLCJpYXQiOjE2NDkzMTI0NDl9.RS1Ny_r0v7vIylFfK6q0JVJrkiDuTOh9iG9IL8xbzAk';
 
 interface FileData {
   request: string;
@@ -107,11 +111,15 @@ export function testRequest(app: Application, filename: string): request.Test {
   const { method, url, reqHeaders, reqBody } = readReq(filename);
   const { status, resBody } = readRes(filename);
 
+  // Add token
+
   // Do the call
   const result = request(app)
     [method as AllMethods](url)
     .set(reqHeaders)
     .send(reqBody);
+
+  // Remove token
 
   // Check result
   if (resBody) {
