@@ -219,11 +219,156 @@ export default [
     },
   },
 
+  // Document link relationship types — ARCH-2026-007 Priority 2
+  {
+    op: 'get',
+    view: '/@docs/links/types',
+    permission: 'View',
+    client: 'getDocLinkTypes',
+    handler: async (req, trx) => {
+      const knex = Model.knex();
+      const result = await knex
+        .raw(
+          `SELECT code, label, description, inverse_code
+           FROM qms.ref_relationship_types
+           ORDER BY label`,
+        )
+        .transacting(trx);
+
+      return {
+        json: {
+          '@id': `${getRootUrl(req)}/@docs/links/types`,
+          items: result.rows,
+        },
+      };
+    },
+  },
+
+  // Document links for a specific document (both directions)
+  {
+    op: 'get',
+    view: '/@docs/links',
+    permission: 'View',
+    client: 'getDocLinks',
+    handler: async (req, trx) => {
+      const knex = Model.knex();
+      const { doc_id } = req.query;
+
+      if (!doc_id) {
+        return { status: 400, json: { error: 'doc_id query parameter required' } };
+      }
+
+      const result = await knex
+        .raw(
+          `SELECT b.id, b.relationship_type, b.relationship_label,
+                  b.direction, b.related_doc_id, b.notes,
+                  b.created_by, b.created_at,
+                  cd.title AS related_title, cd.status AS related_status
+           FROM qms.document_links_bidirectional b
+           LEFT JOIN qms.controlled_documents cd
+             ON cd.document_id = b.related_doc_id
+           WHERE b.doc_id = ?
+           ORDER BY b.direction, b.relationship_label, b.related_doc_id`,
+          [doc_id],
+        )
+        .transacting(trx);
+
+      return {
+        json: {
+          '@id': `${getRootUrl(req)}/@docs/links?doc_id=${encodeURIComponent(doc_id)}`,
+          items: result.rows,
+        },
+      };
+    },
+  },
+
+  // Create a document link
+  {
+    op: 'post',
+    view: '/@docs/links',
+    permission: 'Modify',
+    handler: async (req, trx) => {
+      const knex = Model.knex();
+      const { source_doc_id, target_doc_id, relationship_type, notes } = req.body;
+
+      if (!source_doc_id || !target_doc_id || !relationship_type) {
+        return {
+          status: 400,
+          json: { error: 'Missing required fields: source_doc_id, target_doc_id, relationship_type' },
+        };
+      }
+
+      if (source_doc_id === target_doc_id) {
+        return { status: 400, json: { error: 'Cannot link a document to itself' } };
+      }
+
+      // Validate relationship type exists
+      const typeCheck = await knex
+        .raw(
+          'SELECT code FROM qms.ref_relationship_types WHERE code = ?',
+          [relationship_type],
+        )
+        .transacting(trx);
+
+      if (typeCheck.rows.length === 0) {
+        return { status: 400, json: { error: `Invalid relationship_type: ${relationship_type}` } };
+      }
+
+      const username = req.user?.id || 'anonymous';
+
+      const result = await knex
+        .raw(
+          `INSERT INTO qms.document_links (source_doc_id, target_doc_id, relationship_type, notes, created_by)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT (source_doc_id, target_doc_id, relationship_type) DO NOTHING
+           RETURNING *`,
+          [source_doc_id, target_doc_id, relationship_type, notes || null, username],
+        )
+        .transacting(trx);
+
+      if (result.rows.length === 0) {
+        return { status: 409, json: { error: 'Link already exists' } };
+      }
+
+      return {
+        status: 201,
+        json: {
+          '@id': `${getRootUrl(req)}/@docs/links/${result.rows[0].id}`,
+          ...result.rows[0],
+        },
+      };
+    },
+  },
+
+  // Delete a document link
+  {
+    op: 'delete',
+    view: '/@docs/links/:id',
+    permission: 'Modify',
+    handler: async (req, trx) => {
+      const knex = Model.knex();
+      const { id } = req.params;
+
+      const result = await knex
+        .raw(
+          'DELETE FROM qms.document_links WHERE id = ? RETURNING *',
+          [id],
+        )
+        .transacting(trx);
+
+      if (result.rows.length === 0) {
+        return { status: 404, json: { error: 'Link not found' } };
+      }
+
+      return { status: 204, json: null };
+    },
+  },
+
   // Save document with version bump — ARCH-2026-007 Priority 1
   {
     op: 'post',
     view: '/@docs/save',
-    permission: 'Modify portal content',
+    permission: 'Modify',
     handler: async (req, trx) => {
       const knex = Model.knex();
       const { doc_id, body_md, version_bump, change_summary } = req.body;

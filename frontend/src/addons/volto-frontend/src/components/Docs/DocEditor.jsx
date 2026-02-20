@@ -13,6 +13,7 @@ import {
 import { Helmet } from '@plone/volto/helpers';
 import config from '@plone/volto/registry';
 import DocSaveDialog from './DocSaveDialog';
+import DocLinks from './DocLinks';
 
 const DocEditor = () => {
   const location = useLocation();
@@ -124,6 +125,10 @@ const DocEditor = () => {
           onClose={() => setSaveOpen(false)}
           onSaved={handleSaved}
         />
+      )}
+
+      {doc && doc.frontmatter?.doc_id && (
+        <DocLinks documentId={doc.frontmatter.doc_id} />
       )}
     </Container>
   );
