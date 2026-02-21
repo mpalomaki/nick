@@ -11,6 +11,8 @@ import catalog from './catalog/catalog';
 import content from './content/content';
 import controlpanels from './controlpanels/controlpanels';
 import database from './database/database';
+import docs from './docs/docs';
+import drafts from './docs/drafts';
 import email from './email/email';
 import form from './form/form';
 import groups from './groups/groups';
@@ -21,6 +23,9 @@ import navigation from './navigation/navigation';
 import navroot from './navroot/navroot';
 import nick from './nick/nick';
 import polyglot from './polyglot/polyglot';
+import evidence from './qms/evidence';
+import qms from './qms/qms';
+import training from './qms/training';
 import querystring from './querystring/querystring';
 import related from './related/related';
 import roles from './roles/roles';
@@ -42,6 +47,8 @@ export default [
   ...catalog,
   ...controlpanels,
   ...database,
+  ...docs,
+  ...drafts,
   ...email,
   ...form,
   ...groups,
@@ -52,6 +59,9 @@ export default [
   ...navroot,
   ...nick,
   ...polyglot,
+  ...evidence,
+  ...qms,
+  ...training,
   ...querystring,
   ...related,
   ...roles,
