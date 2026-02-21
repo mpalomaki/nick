@@ -5,7 +5,9 @@
 
 import { Document } from '../../models/document/document';
 import { Controlpanel } from '../../models/controlpanel/controlpanel';
-import { getPath, getUrl, getUrlByPath } from '../../helpers/url/url';
+import { v4 as uuid } from 'uuid';
+
+import { getUrl, getUrlByPath } from '../../helpers/url/url';
 
 export const handler = async (req, trx) => {
   const documents = req.document.translation_group
@@ -74,22 +76,27 @@ export default [
     permission: 'Modify',
     client: 'linkTranslation',
     handler: async (req, trx) => {
-      // Strip prefix of url
-      const id = getPath(req.body.id);
+      const id = req.body.id;
 
       let target;
-      // Check if path
+      // Check if path or uuid
       if (id.startsWith('/')) {
         target = await Document.fetchOne({ path: id }, {}, trx);
-        // Else it is a uuid
       } else {
         target = await Document.fetchOne({ uuid: id }, {}, trx);
       }
 
-      // Link documents
-      await document.update(
+      // Ensure a translation_group exists
+      let translationGroup = req.document.translation_group;
+      if (!translationGroup) {
+        translationGroup = uuid();
+        await req.document.update({ translation_group: translationGroup }, trx);
+      }
+
+      // Link target to the same translation group
+      await target.update(
         {
-          translation_group: req.document.translation_group,
+          translation_group: translationGroup,
         },
         trx,
       );
