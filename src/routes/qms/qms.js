@@ -963,7 +963,7 @@ export default [
                       pr.reported_by, pr.reported_at, pr.disposition,
                       pr.related_capa_id, pr.related_dr_id,
                       rps.is_open,
-                      now() - pr.reported_at AS age,
+                      ROUND(EXTRACT(epoch FROM now() - pr.reported_at) / 86400, 1) AS age_days,
                       CASE
                         WHEN pr.severity = 'critical' AND (now() - pr.reported_at) > interval '24 hours' THEN 'OVERDUE'
                         WHEN pr.severity = 'high' AND (now() - pr.reported_at) > interval '5 days' THEN 'OVERDUE'
@@ -1067,27 +1067,10 @@ export default [
 
       const issue = prResult.rows[0];
 
-      // Fetch related document links (if any link this report_id)
-      const linksResult = await knex
-        .raw(
-          `SELECT b.id, b.relationship_type, b.relationship_label,
-                  b.direction, b.related_doc_id, b.notes,
-                  b.created_at,
-                  cd.title AS related_title, cd.status AS related_status
-           FROM qms.document_links_bidirectional b
-           LEFT JOIN qms.controlled_documents cd
-             ON cd.document_id = b.related_doc_id
-           WHERE b.doc_id = ?
-           ORDER BY b.direction, b.relationship_label`,
-          [report_id],
-        )
-        .transacting(trx);
-
       return {
         json: {
           '@id': `${getRootUrl(req)}/@qms/issues/${encodeURIComponent(report_id)}`,
           ...issue,
-          links: linksResult.rows,
         },
       };
     },
